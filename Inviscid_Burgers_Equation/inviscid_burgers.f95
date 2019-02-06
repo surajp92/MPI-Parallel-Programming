@@ -17,7 +17,7 @@ real*8, parameter					:: dt=0.00125, T = 0.25
 real*8, dimension(:), allocatable	:: u_initial_local !, u_next
 real*8, dimension(:), allocatable	:: u_final_local
 real*8, parameter					:: x_left = -2.0, x_right = 2.0
-integer, parameter					:: n_global = 33
+integer, parameter					:: n_global = 321
 integer								:: n_local
 real*8								:: dx, x
 integer								:: i, k
@@ -184,6 +184,7 @@ integer								:: i_local, i_global
 integer								:: n_local, n_global
 real*8								:: u_initial_local(n_local)
 real*8, dimension(:), allocatable	:: u_global, x_global
+real*8, dimension(:), allocatable	:: u_inital_global
 integer								:: procs, i
 integer								:: n_local_procs
 real*8								:: dx, x_left
@@ -212,14 +213,25 @@ end if
 
 i_local_low = 0
 i_local_high = i_global_high - i_global_low
-
+	
+	allocate(x_global(1:n_global))
+	allocate(u_inital_global(1:n_global))
+	
+	do i_global = 1, n_global
+		x_global(i_global) = x_left + dx*(i_global-1)
+		if (x_global(i_global) .le. -1 .or. x_global(i_global) .ge. 1) then
+			u_inital_global(i_global) = 0.0		
+		else
+			u_inital_global(i_global) = 1-abs(x_global(i_global))
+		end if	
+	end do
+	
 if (rank == 0) then
 	allocate(u_global(1:n_global))
-	allocate(x_global(1:n_global))
 	
+		
 	do i_local = i_local_low, i_local_high
 		i_global = i_global_low + i_local - i_local_low
-		x_global(i_global+1) = x_left + dx*(i_global)
 		u_global(i_global+1) = u_initial_local(i_local+1)
 	end do
 
@@ -250,12 +262,12 @@ if (rank == 0) then
 	end do
 	
 	open(unit = 4, file = 'solution.dat')
-	write(4,*), 'Varaibles = "X""U"' 
+	write(4,*), 'Varaibles = "X""Initial""Final"' 
 	do i = 1, n_global
-		write(4,*), x_global(i), u_global(i)
+		write(4,*), x_global(i), u_inital_global(i), u_global(i)
 	end do
 
-	print *, u_global 
+	! print *, u_global 
 	! print *, i_global_low, n_local_procs
 	! Writing the final solution
 	deallocate(u_global)
