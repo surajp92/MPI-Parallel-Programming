@@ -50,7 +50,7 @@ allocate(u_initial_local(1:n_local))
 call update(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left, dt, T)
 
 ! Call collect subroutine to collect velocity from all processors and store it in 0th processor
-call collect(rank, nprocs, n_local, n_global, u_initial_local)
+call collect(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left)
 
 ! Finalize MPI
 call MPI_FINALIZE(ierr)
@@ -115,7 +115,7 @@ end do
 
 do k = 2,time_steps
 
-print *, k
+print *, rank, k
 
 !###############  calculate results at new time step ###############! 
 	do i_local = i_local_low + 1 , i_local_high - 1
@@ -172,7 +172,7 @@ end do
 return
 end subroutine update 
 
-subroutine collect(rank, nprocs, n_local, n_global, u_initial_local)
+subroutine collect(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left)
 
 use mpi
 
@@ -183,9 +183,10 @@ integer								:: i_global_low, i_global_high
 integer								:: i_local, i_global
 integer								:: n_local, n_global
 real*8								:: u_initial_local(n_local)
-real*8, dimension(:), allocatable	:: u_global
+real*8, dimension(:), allocatable	:: u_global, x_global
 integer								:: procs, i
 integer								:: n_local_procs
+real*8								:: dx, x_left
 
 ! Data declarations for MPI
 integer 	:: ierr ! error signal variable, Standard value - 0
@@ -214,10 +215,12 @@ i_local_high = i_global_high - i_global_low
 
 if (rank == 0) then
 	allocate(u_global(1:n_global))
+	allocate(x_global(1:n_global))
 	
 	do i_local = i_local_low, i_local_high
 		i_global = i_global_low + i_local - i_local_low
-		u_global(i_global) = u_initial_local(i_local)
+		x_global(i_global+1) = x_left + dx*(i_global)
+		u_global(i_global+1) = u_initial_local(i_local+1)
 	end do
 
 	do procs = 1,nprocs-1
@@ -247,10 +250,10 @@ if (rank == 0) then
 	end do
 	
 	open(unit = 4, file = 'solution.dat')
-	write(4,*), 'Node', ' ', 'Analytical', ' ','Numerical' 
-	!do i = 1, n_global
-		write(4,*), u_global
-	!end do
+	write(4,*), 'Varaibles = "X""U"' 
+	do i = 1, n_global
+		write(4,*), x_global(i), u_global(i)
+	end do
 
 	print *, u_global 
 	! print *, i_global_low, n_local_procs
