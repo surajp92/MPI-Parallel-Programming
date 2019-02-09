@@ -136,7 +136,7 @@ print *, rank, k
 		! syntax call MPI_RECV(start_address, count, datatype, sourc, tag, communicator, status, ierr)
 	 	call MPI_RECV(u_final_local(i_local_low+1), 1, MPI_DOUBLE_PRECISION, rank-1, right, MPI_COMM_WORLD, status, ierr)
 	else  
-		! Boundary condiiton on left side
+		! Boundary condiiton on left side for processor 0
 		u_final_local(i_local_low+1) = 0.0
 	end if
 
@@ -150,7 +150,7 @@ print *, rank, k
 		!Syntax: call MPI_SEND(start_address, count, datatype, destination pid/rank, tag, comminicator, ierr)
 		call MPI_SEND(u_final_local(i_local_high), 1, MPI_DOUBLE_PRECISION, rank+1, right, MPI_COMM_WORLD, ierr)
 	else
-		! Boundary condiiton on right side
+		! Boundary condiiton on right side for nth processor
 		u_final_local(i_local_high+1) = u_final_local(i_local_high) 
 	end if
 	
