@@ -259,6 +259,9 @@ end if
 
 write(rank+1000,*) '  Total time = ', stop_time-start_time, ' seconds.', ' nnodes=',nx*ny
 
+temperature = temperature_old
+call write_tecplot_file(x,y,temperature,temperature_exact,nx,ny,rank,nprocs)
+
 ! MPI final calls
 call MPI_FINALIZE(ierr) ! ierr = 0 if successful
 
@@ -321,3 +324,64 @@ do j = 0, ny+1
 end do
 
 end subroutine initialize
+
+!------------------------------------------------------------------
+! subroutine for writing results into tecplot which can be plotted
+
+subroutine write_tecplot_file(x,y,temperature,temperature_exact,nx,ny,rank,nprocs)
+
+implicit none
+
+integer , intent(in)                           :: nx, ny, rank,nprocs
+real*8, intent(in), dimension(0:nx+1,0:ny+1) ::  x,  y
+real*8, intent(in), dimension(0:nx+1,0:ny+1) :: temperature,temperature_exact
+
+integer                                        :: i, j
+character(80)                                  :: char_temp, filename
+
+!---------------------------------------------------------------------------
+! Store the value of 'rank' as a character in the character variable 'char_temp'.
+ write(char_temp,'(i5)') rank
+
+!---------------------------------------------------------------------------
+! Define the file name
+ filename = "tecplot_" // trim(adjustl(char_temp)) // '.dat'
+
+!---------------------------------------------------------------------------
+! Open the file and start writing the data!
+ open(unit=1, file=filename, status="unknown")
+
+!---------------------------------------------------------------------------
+! Header
+ write(1,*) 'title =', '"Partition_'// trim(adjustl(char_temp)), '"'
+ write(1,*) 'variables = "x", "y", "Temperature", "Temperature exact" "T-Texact"'
+
+ if (rank==0) then
+  write(1,*) 'zone T=','Partition_'// trim(adjustl(char_temp)),' i=', nx+2, 'j=', ny+1, 'f=point'
+ else
+  write(1,*) 'zone T=','Partition_'// trim(adjustl(char_temp)),' i=', nx+2, 'j=', ny+2, 'f=point'
+ endif
+
+!---------------------------------------------------------------------------
+! Note: Exclude the bottom ghost nodes in rank=0, which lie outside the domain, and so
+!       are not used in the iteration and completely irrelevant to the soltuion.
+! Write grid data (including the ghost points at j = 0 and ny+1)
+
+ do j = 0, ny+1
+
+  if (rank==0 .and. j==0) cycle
+
+  do i = 0, nx+1
+
+   write(1,*) x(i,j), y(i,j), temperature(i,j), temperature_exact(i,j), &
+              temperature(i,j) - temperature_exact(i,j) ! <- error
+
+  end do
+
+ end do
+
+!---------------------------------------------------------------------------
+! Close the file
+ close(1)
+
+end subroutine write_tecplot_file

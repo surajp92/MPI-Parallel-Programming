@@ -28,13 +28,13 @@ integer								:: i_global_low, i_global_high
 dx = (x_right-x_left)/(n_global-1)
 
 ! Initialize MPI
-call MPI_INIT(ierr)
-	
+ call MPI_INIT(ierr)
+
 ! Setup comminicator size
-call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs, ierr)
-	
+ call MPI_COMM_SIZE(MPI_COMM_WORLD, nprocs, ierr)
+
 ! Setup rank/IDs for eac h process
-call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
+ call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
 
 i_global_low  = (rank		*(n_global-1))/nprocs
 i_global_high = ((rank+1)	*(n_global-1))/nprocs
@@ -44,9 +44,9 @@ if (rank > 0) then
 end if
 
 n_local = i_global_high - i_global_low + 1
-allocate(u_initial_local(1:n_local))  
+allocate(u_initial_local(1:n_local))
 
-! Call update subroutine to calculate velocity field 
+! Call update subroutine to calculate velocity field
 call update(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left, dt, T)
 
 ! Call collect subroutine to collect velocity from all processors and store it in 0th processor
@@ -57,7 +57,7 @@ call MPI_FINALIZE(ierr)
 
 deallocate(u_initial_local)
 
-end program inviscid_burgers  
+end program inviscid_burgers
 
 subroutine update(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left, dt, T)
 
@@ -107,7 +107,7 @@ do i_global = i_global_low, i_global_high
 	x = x_left + dx*(i_global)
 	i_local = i_global - i_global_low
 	if (x .le. -1 .or. x.ge.1) then
-		u_initial_local(i_local + 1) = 0.0		
+		u_initial_local(i_local + 1) = 0.0
 	else
 		u_initial_local(i_local + 1) = 1-abs(x)
 	end if
@@ -117,25 +117,25 @@ do k = 2,time_steps
 
 print *, rank, k
 
-!###############  calculate results at new time step ###############! 
+!###############  calculate results at new time step ###############!
 	do i_local = i_local_low + 1 , i_local_high - 1
 		u_final_local(i_local+1) = u_initial_local(i_local+1) &
-								  -0.5*lambda*(u_initial_local(i_local+1+1)-u_initial_local(i_local+1-1))	
+								  -0.5*lambda*(u_initial_local(i_local+1+1)-u_initial_local(i_local+1-1))
 	end do
 
 
 !############### communicate to share common points between two processors ###############!
 
 ! Comminication to left processor and from right processor
-	if (rank > 0) then 
+	if (rank > 0) then
 		!Send (i_local_low+2) to (i_local_high+1) of left
 		!Syntax: call MPI_SEND(start_address, count, datatype, destination pid/rank, tag, comminicator, ierr)
 		call MPI_SEND(u_final_local(i_local_low+2), 1, MPI_DOUBLE_PRECISION, rank-1, left, MPI_COMM_WORLD, ierr)
-		
-		! receive (i_local_high) 
+
+		! receive (i_local_high)
 		! syntax call MPI_RECV(start_address, count, datatype, sourc, tag, communicator, status, ierr)
 	 	call MPI_RECV(u_final_local(i_local_low+1), 1, MPI_DOUBLE_PRECISION, rank-1, right, MPI_COMM_WORLD, status, ierr)
-	else  
+	else
 		! Boundary condiiton on left side for processor 0
 		u_final_local(i_local_low+1) = 0.0
 	end if
@@ -144,20 +144,20 @@ print *, rank, k
 	if (rank < nprocs-1) then
 		! receive (i_local_low+2) of left to (i_local_high+1)
 		! syntax call MPI_RECV(start_address, count, datatype, sourc, tag, communicator, status, ierr)
-	 	call MPI_RECV(u_final_local(i_local_high+1), 1, MPI_DOUBLE_PRECISION, rank+1, left, MPI_COMM_WORLD, status, ierr)	
-	 	
+	 	call MPI_RECV(u_final_local(i_local_high+1), 1, MPI_DOUBLE_PRECISION, rank+1, left, MPI_COMM_WORLD, status, ierr)
+
 	 	!Send (i_local_high) of left to (i_local_low+1) of right
 		!Syntax: call MPI_SEND(start_address, count, datatype, destination pid/rank, tag, comminicator, ierr)
 		call MPI_SEND(u_final_local(i_local_high), 1, MPI_DOUBLE_PRECISION, rank+1, right, MPI_COMM_WORLD, ierr)
 	else
 		! Boundary condiiton on right side for nth processor
-		u_final_local(i_local_high+1) = u_final_local(i_local_high) 
+		u_final_local(i_local_high+1) = u_final_local(i_local_high)
 	end if
-	
-!###############  update initial field with final field	###############! 
+
+!###############  update initial field with final field	###############!
 	do i_local = i_local_low, i_local_high
 		u_initial_local(i_local+1) = u_final_local(i_local+1)
-		
+
 	end do
 end do
 
@@ -170,7 +170,7 @@ end do
 !print (*, Format), 'Initial velocity field', u_initial_local
 
 return
-end subroutine update 
+end subroutine update
 
 subroutine collect(rank, nprocs, n_local, n_global, u_initial_local, dx, x_left)
 
@@ -213,37 +213,37 @@ end if
 
 i_local_low = 0
 i_local_high = i_global_high - i_global_low
-	
+
 	allocate(x_global(1:n_global))
 	allocate(u_inital_global(1:n_global))
-	
+
 	do i_global = 1, n_global
 		x_global(i_global) = x_left + dx*(i_global-1)
 		if (x_global(i_global) .le. -1 .or. x_global(i_global) .ge. 1) then
-			u_inital_global(i_global) = 0.0		
+			u_inital_global(i_global) = 0.0
 		else
 			u_inital_global(i_global) = 1-abs(x_global(i_global))
-		end if	
+		end if
 	end do
-	
+
 if (rank == 0) then
 	allocate(u_global(1:n_global))
-	
-		
+
+
 	do i_local = i_local_low, i_local_high
 		i_global = i_global_low + i_local - i_local_low
 		u_global(i_global+1) = u_initial_local(i_local+1)
 	end do
 
 	do procs = 1,nprocs-1
-		
+
 		! receive global_low and number_local points in the processor
 		! syntax call MPI_RECV(start_address, count, datatype, sourc, tag, communicator, status, ierr)
 		call MPI_RECV(buffer, 2, MPI_INTEGER, procs, collect1, MPI_COMM_WORLD, status, ierr)
-		
+
 		i_global_low = buffer(1)
 		n_local_procs = buffer(2)
-		
+
 		if ( i_global_low < 0 ) then
 			write ( *, '(a,i6)' ) '  Illegal I_GLOBAL_LO = ', i_global_low
 			call MPI_Finalize ( ierr )
@@ -254,33 +254,33 @@ if (rank == 0) then
 			call MPI_Finalize ( ierr )
 			stop 1
 		end if
-		
+
 		! receive u_local from the processor and add it to u_global
 		! syntax call MPI_RECV(start_address, count, datatype, sourc, tag, communicator, status, ierr)
-	 	call MPI_RECV(u_global(i_global_low+1), n_local_procs, MPI_DOUBLE_PRECISION, procs, collect2, MPI_COMM_WORLD, status, ierr)		
-	
+	 	call MPI_RECV(u_global(i_global_low+1), n_local_procs, MPI_DOUBLE_PRECISION, procs, collect2, MPI_COMM_WORLD, status, ierr)
+
 	end do
-	
+
 	open(unit = 4, file = 'solution.dat')
-	write(4,*), 'Varaibles = "X""Initial""Final"' 
+	write(4,*), 'Varaibles = "X""Initial""Final"'
 	do i = 1, n_global
 		write(4,*), x_global(i), u_inital_global(i), u_global(i)
 	end do
 
-	! print *, u_global 
+	! print *, u_global
 	! print *, i_global_low, n_local_procs
 	! Writing the final solution
 	deallocate(u_global)
-	
+
 else
 
 	buffer(1) = i_global_low
 	buffer(2) = n_local
-	
+
 	!Send global_low and n_local for the processor
 	!Syntax: call MPI_SEND(start_address, count, datatype, destination pid/rank, tag, comminicator, ierr)
 	call MPI_SEND(buffer, 2, MPI_INTEGER, 0, collect1, MPI_COMM_WORLD, ierr)
-	
+
 	!Send u_local from the processor and add it to u_global
 	!Syntax: call MPI_SEND(start_address, count, datatype, destination pid/rank, tag, comminicator, ierr)
 	call MPI_SEND(u_initial_local, n_local, MPI_DOUBLE_PRECISION, 0, collect2, MPI_COMM_WORLD, ierr)
