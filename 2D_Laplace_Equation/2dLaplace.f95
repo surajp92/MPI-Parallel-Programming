@@ -21,10 +21,10 @@ implicit none
 include 'mpif.h'
 
 ! Global domain parameters
-integer, parameter          ::           nx_global = 128
-integer, parameter          ::           ny_global = 128
+integer, parameter          ::           nx_global = 256
+integer, parameter          ::           ny_global = 256
 real*8, parameter           :: max_error_tolerance = 1.0e-6
-real*8, parameter           ::      max_iterations = 10000
+real*8, parameter           ::      max_iterations = 50000
 real*8                      ::    max_error_global = 100.0
 
 ! Local parameters for processors
@@ -85,6 +85,7 @@ end if
 ! local size
 nx = nx_global
 ny = ny_global/nprocs
+!print *, nx, ny+1
 
 ! grid spacing size
 h = 1.0/(ny_global)
@@ -101,7 +102,7 @@ do j = 0, ny+1
 
     ! y-coordinate
     yp_loc_min = rank*(1.0/nprocs) ! dimesnion in y-direction is 1.0
-            yp = yp_loc_min + h*(j-1) ! (j-1) = bottom ghost
+            yp = yp_loc_min + h*(j-1) ! (j-1) = bottom ghost, j = 0 is ghost node at -h
 
     do i = 0, nx+1
         x(i,j) = real(i)/real(nx+1) ! x(0) = 0.0, x(nx+1) = 1.0
@@ -114,7 +115,12 @@ end do
 ! Calculate initial, boundary condition and exact condition
 
 call initialize (rank, nprocs, x, y, nx, ny, temperature_old, temperature_exact)
-temperature = temperature_old
+do j = 0,ny+1
+    do i = 0,nx+1
+            temperature(i,j) = temperature_old(i,j)
+    end do
+end do
+
 
 !------------------------------------------------------------------
 ! start recording actual execution time
@@ -143,12 +149,14 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
         end do
 
     end do
+
+
 !------------------------------------------------------------------
 ! communicate the solution between ghost nodes
 
     ! send solution of top boundary of local domain (rank 0,1..) (j = ny) to
     ! bottom ghost nodes of upper domain ((rank+1) 1,2..) (j = 0)
-    if (rank < nprocs-1) then
+    if (rank /= nprocs-1) then
         call MPI_Isend(temperature(1,ny), & ! starting address of data to be send
                                       nx, & ! number of bytes of data to be send
                     MPI_DOUBLE_PRECISION, & ! datatype of data to be send
@@ -198,6 +206,7 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
                                       ierr)   ! ierr = 0 if successful
     end if
 
+
     ! wait till Isend and Irecv above is completed
     call MPI_Waitall(4, req, status_array, ierr)
 
@@ -207,10 +216,16 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
     do j = 1, ny
         if (rank == 0 .and. j ==1) cycle
         do i = 1,nx
-            max_error_local = max(temperature(i,j)-temperature_old(i,j), max_error_local)
-            temperature(i,j) = temperature_old(i,j)
+            max_error_local = max(abs(temperature(i,j)-temperature_old(i,j)), max_error_local)
+            temperature_old(i,j) = temperature(i,j)
         end do
     end do
+
+    !print *, 'Final initial condition'
+    !do j = 0, ny+1
+    !    print *, rank, 'new', j, temperature(:,j)
+        ! print *, rank, 'new', j, temperature(:,j)
+    !end do
 
     ! reduce maximum_error_local in each domain to max_error_global
     ! and store it in rank = 0 processor
@@ -259,7 +274,7 @@ end if
 
 write(rank+1000,*) '  Total time = ', stop_time-start_time, ' seconds.', ' nnodes=',nx*ny
 
-temperature = temperature_old
+! temperature = temperature_old
 call write_tecplot_file(x,y,temperature,temperature_exact,nx,ny,rank,nprocs)
 
 ! MPI final calls
@@ -298,7 +313,7 @@ do j = 0, ny+1
         xp = x(i,j)
         yp = y(i,j)
         temperature_exact(i,j) = (sinh(pi*xp)*sin(pi*yp) + sinh(pi*yp)*sin(pi*xp))/sinh(pi)
-        temperature_old = temperature_exact(i,j)
+        temperature_old(i,j) = temperature_exact(i,j)
     end do
 
 end do
@@ -306,8 +321,8 @@ end do
 ! change initial condiiton for interior points. Do not change at boundaries
 ! exact solution at boundaries is the boundary condition
 
-do j = 0, ny+1
 
+do j = 0, ny+1
     ! boundary condition on the bototm side of the domain
     ! j = 0 is ghost and j = 1 is lower boundarey
     if (rank == 0 .and. j<2) cycle
@@ -318,6 +333,7 @@ do j = 0, ny+1
 
     ! skip i = 0 (left boundary) and i = nx+1 (right boundary)
     do i = 1, nx
+        ! print *, rank, i, j
         temperature_old(i,j) = 0.0
     end do
 
