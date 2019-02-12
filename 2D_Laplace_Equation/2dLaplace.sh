@@ -17,4 +17,4 @@ ls
 /usr/bin/mpif90 -fbounds-check -o 2dLaplace.exe 2dLaplace.f95
 ls
 # Run the executable
-/usr/bin/mpirun -n 2 ./2dLaplace.exe
+/usr/bin/mpirun -n 6 ./2dLaplace.exe

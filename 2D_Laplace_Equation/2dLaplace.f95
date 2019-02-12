@@ -115,12 +115,7 @@ end do
 ! Calculate initial, boundary condition and exact condition
 
 call initialize (rank, nprocs, x, y, nx, ny, temperature_old, temperature_exact)
-do j = 0,ny+1
-    do i = 0,nx+1
-            temperature(i,j) = temperature_old(i,j)
-    end do
-end do
-
+temperature = temperature_old
 
 !------------------------------------------------------------------
 ! start recording actual execution time
@@ -156,7 +151,7 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
 
     ! send solution of top boundary of local domain (rank 0,1..) (j = ny) to
     ! bottom ghost nodes of upper domain ((rank+1) 1,2..) (j = 0)
-    if (rank /= nprocs-1) then
+    if (rank < nprocs-1) then
         call MPI_Isend(temperature(1,ny), & ! starting address of data to be send
                                       nx, & ! number of bytes of data to be send
                     MPI_DOUBLE_PRECISION, & ! datatype of data to be send
@@ -183,7 +178,7 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
     ! receive data from bottom domain (rank-1 0,1) (j = ny)  and
     ! store it in bottom ghost nodes (j = 0)
     if (rank /= 0) then
-        call MPI_Irecv(temperature(1,0), & ! starting address of data to be receive
+        call MPI_Irecv(temperature_old(1,0), & ! starting address of data to be receive
                                      nx, & ! number of bytes of data to be receive
                    MPI_DOUBLE_PRECISION, & ! datatype of data to be receive
                                 rank-1 , & ! source processor rank
@@ -196,7 +191,7 @@ do while (max_error_global >= max_error_tolerance .and. iteration_count <= max_i
     ! receive data from tom domain (rank+1 1,2) (j = 1)  and
     ! store it in top ghost nodes (j = ny+1)
     if (rank /= nprocs-1) then
-        call MPI_Irecv(temperature(1,ny+1), & ! starting address of data to be send
+        call MPI_Irecv(temperature_old(1,ny+1), & ! starting address of data to be send
                                         nx, & ! number of bytes of data to be send
                       MPI_DOUBLE_PRECISION, & ! datatype of data to be send
                                    rank+1 , & ! source processor rank
@@ -274,7 +269,7 @@ end if
 
 write(rank+1000,*) '  Total time = ', stop_time-start_time, ' seconds.', ' nnodes=',nx*ny
 
-! temperature = temperature_old
+temperature = temperature_old
 call write_tecplot_file(x,y,temperature,temperature_exact,nx,ny,rank,nprocs)
 
 ! MPI final calls
