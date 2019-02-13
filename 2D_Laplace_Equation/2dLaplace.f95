@@ -21,8 +21,8 @@ implicit none
 include 'mpif.h'
 
 ! Global domain parameters
-integer, parameter          ::           nx_global = 256
-integer, parameter          ::           ny_global = 256
+integer, parameter          ::           nx_global = 4
+integer, parameter          ::           ny_global = 4
 real*8, parameter           :: max_error_tolerance = 1.0e-6
 real*8, parameter           ::      max_iterations = 50000
 real*8                      ::    max_error_global = 100.0
@@ -379,14 +379,13 @@ character(80)                                  :: char_temp, filename
 ! Write grid data (including the ghost points at j = 0 and ny+1)
 
  do j = 0, ny+1
-
+  ! write(1,*) ''
   if (rank==0 .and. j==0) cycle
 
   do i = 0, nx+1
 
    write(1,*) x(i,j), y(i,j), temperature(i,j), temperature_exact(i,j), &
               temperature(i,j) - temperature_exact(i,j) ! <- error
-
   end do
 
  end do
